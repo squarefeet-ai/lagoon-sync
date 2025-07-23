@@ -28,7 +28,9 @@ def _check_disk_space(check_path: Path, required_bytes: int) -> None:
         check_path (Path): The path to the directory to check for space.
         required_bytes (int): The configured map size in bytes.
     """
-    free_space: int = shutil.disk_usage(check_path.parent).free
+    # Accept either a directory or a file path and test the correct location
+    path_to_check: Path = check_path if check_path.is_dir() else check_path.parent
+    free_space: int = shutil.disk_usage(path_to_check).free
     if free_space < required_bytes:
         raise LagoonSyncError(
             f"Insufficient disk space for LMDB. Required: "
