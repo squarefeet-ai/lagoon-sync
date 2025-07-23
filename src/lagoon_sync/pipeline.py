@@ -3,6 +3,7 @@
 
 import asyncio
 import logging
+from pathlib import PurePath
 from typing import TYPE_CHECKING, AsyncIterator, Dict, List, Optional, Set
 
 import polars as pl
@@ -19,7 +20,7 @@ from rich.progress import (
 
 from lagoon_sync.config import Config
 from lagoon_sync.controller import CongestionController, DynamicSemaphore
-from lagoon_sync.db import ObjectStatus, ProgressDB
+from lagoon_sync.db import ProgressDB
 from lagoon_sync.worker import copy_object
 
 if TYPE_CHECKING:
@@ -138,21 +139,32 @@ class LagoonSyncPipeline:
                 logger.info(f"Processing new manifest: {manifest_key}")
                 manifest_uri: str = f"s3://{self._config.source.bucket}/{manifest_key}"
 
-                # Use Polars to scan S3 directly, avoiding local download
-                lf: pl.LazyFrame = pl.scan_parquet(
-                    manifest_uri, storage_options=storage_options
-                )
-                keys_df: pl.DataFrame = lf.select(
-                    self._config.app.manifest_column_name
-                ).collect()
-                keys_from_manifest: Set[str] = set(
-                    keys_df[self._config.app.manifest_column_name].to_list()
-                )
+                try:
+                    # Use Polars to scan S3 directly, avoiding local download
+                    lf: pl.LazyFrame = pl.scan_parquet(
+                        manifest_uri, storage_options=storage_options
+                    )
+                    keys_df: pl.DataFrame = lf.select(
+                        self._config.app.manifest_column_name
+                    ).collect()
+                    keys_from_manifest: Set[str] = set(
+                        keys_df[self._config.app.manifest_column_name].to_list()
+                    )
 
-                all_keys.update(keys_from_manifest)
-                self._processed_manifests_db.set_status(
-                    manifest_key, ObjectStatus.COMPLETED
-                )
+                    # Validate keys to prevent path traversal attacks
+                    validated_keys: Set[str] = set()
+                    for key in keys_from_manifest:
+                        if ".." in PurePath(key).parts or PurePath(key).is_absolute():
+                            logger.warning(
+                                f"Skipping unsafe key from manifest "
+                                f"'{manifest_key}': '{key}'"
+                            )
+                            continue
+                        validated_keys.add(key)
+
+                    all_keys.update(validated_keys)
+                except Exception as e:
+                    logger.error(f"Failed to read manifest '{manifest_key}': {e}")
 
         logger.info(f"Found {len(all_keys)} total objects across all new manifests.")
         return all_keys
