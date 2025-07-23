@@ -37,9 +37,6 @@ async def copy_object(
     """
     Copies a single object, measures performance, and updates progress.
 
-    This function performs a streaming copy from source to destination to
-    minimize memory usage. It is the core unit of work in the pipeline.
-
     Args:
         key (str): The object key to copy.
         source_client (S3Client): An initialized S3 client for the source.
@@ -56,6 +53,7 @@ async def copy_object(
     object_size: int = 0
     err_tag: Optional[str] = None
 
+    # The whole object is read into RAM, fine for small objects.
     try:
         # Get object from source
         get_object_start_time: float = time.monotonic()
