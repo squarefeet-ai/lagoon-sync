@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install the desired Python version
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Cache uv’s wheel and download cache
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}
+
+      # Install uv package manager
+      - name: Install uv
+        run: |
+          curl -Ls https://astral.sh/uv/install.sh | bash
+
+      # Sync project dependencies
+      - name: Install project
+        run: |
+          uv sync
+
+      # Run the test suite
+      - name: Run tests
+        run: |
+          uv run pytest -q
