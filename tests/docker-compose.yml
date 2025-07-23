@@ -1,0 +1,33 @@
+# test/docker-compose.yml
+version: "3.8"
+
+services:
+  minio-source:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    environment:
+      - MINIO_ROOT_USER=minio-key
+      - MINIO_ROOT_PASSWORD=minio-secret
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+
+  minio-destination:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9012:9000"
+      - "9013:9001"
+    environment:
+      - MINIO_ROOT_USER=minio-key
+      - MINIO_ROOT_PASSWORD=minio-secret
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
