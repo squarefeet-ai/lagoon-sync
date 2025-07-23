@@ -1,0 +1,39 @@
+[project]
+name = "lagoon-sync"
+version = "0.1.0"
+description = "An efficient, resumable, and auto-tuning S3 to S3 replicator with manifest support."
+authors = [{ name = "Frédéric Larochelle", email = "fredlarochelle@outlook.com" }]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiobotocore>=2.23.1",
+    "click>=8.2.1",
+    "lmdb>=1.7.2",
+    "numpy>=2.3.1",
+    "polars>=1.31.0",
+    "python-dotenv>=1.1.1",
+    "rich>=14.0.0",
+    "types-aiobotocore[s3]>=2.23.1",
+    "types-boto3[s3]>=1.39.11",
+]
+
+[project.scripts]
+lagoon-sync = "lagoon_sync.cli:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "boto3>=1.38.46",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-docker>=3.2.3",
+    "requests>=2.32.4",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:datetime.datetime.utcnow\\(\\) is deprecated:DeprecationWarning:botocore\\.auth",
+]
