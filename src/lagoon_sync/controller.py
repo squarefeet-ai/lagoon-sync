@@ -208,28 +208,40 @@ class CongestionController:
             )
             rtts: List[float] = [m.rtt_ms for m in successes if m.rtt_ms is not None]
             median_rtt: float = float(np.median(rtts)) if rtts else self._last_rtt_ms
+            p90_rtt: float = (
+                float(np.percentile(rtts, 90)) if rtts else self._last_rtt_ms
+            )
         else:
             goodput_mbps: float = 0.0
             median_rtt: float = self._last_rtt_ms
+            p90_rtt: float = self._last_rtt_ms
 
         logger.debug(
             f"Controller state: limit={current_limit}, "
             f"goodput={goodput_mbps:.2f} Mbps, "
-            f"error_rate={error_rate:.2%}, median_rtt={median_rtt:.0f}ms"
+            f"error_rate={error_rate:.2%}, median_rtt={median_rtt:.0f}ms, "
+            f"p90_rtt={p90_rtt:.0f}ms"
         )
 
         # AIMD logic
         new_limit: int = current_limit
-        if error_rate > 0.1 or (
-            self._last_rtt_ms > 0 and median_rtt > 1.5 * self._last_rtt_ms
-        ):
+        high_error_rate: bool = (
+            error_rate > self._config.controller_error_rate_threshold
+        )
+        rtt_spike: bool = (
+            self._last_rtt_ms > 0
+            and p90_rtt > self._config.controller_rtt_spike_factor * self._last_rtt_ms
+        )
+
+        if high_error_rate or rtt_spike:
             # Multiplicative Decrease: High errors or sharp RTT spike
             new_limit = max(
                 self._config.min_concurrency,
                 int(current_limit * self._config.controller_decrease_factor),
             )
+            reason: str = "error rate" if high_error_rate else "RTT spike"
             logger.warning(
-                f"High error rate or RTT spike. Decreasing concurrency: "
+                f"High {reason} detected. Decreasing concurrency: "
                 f"{current_limit} -> {new_limit}"
             )
         elif goodput_mbps >= self._last_goodput * 0.95:
@@ -240,7 +252,6 @@ class CongestionController:
             logger.info(
                 f"Throughput dropped, holding concurrency steady at {current_limit}."
             )
-
         self._semaphore.set_limit(new_limit)
         self._last_goodput = goodput_mbps
         self._last_rtt_ms = median_rtt
