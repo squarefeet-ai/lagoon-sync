@@ -13,4 +13,8 @@ from typing import List
 
 from lagoon_sync.pipeline import LagoonSyncPipeline
 
+# The version of the package, aligned with pyproject.toml.
+# Ideally, this would be managed dynamically by a tool like setuptools-scm.
+__version__ = "0.1.0"
+
 __all__: List[str] = ["LagoonSyncPipeline"]
