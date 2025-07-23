@@ -120,6 +120,8 @@ class ProgressDB:
     def close(self) -> None:
         """Closes the LMDB environment."""
         if self._env:
+            db_path: str = self._env.path()
+            self._env.sync(True)  # Force flush to disk for durability
             self._env.close()
             self._env = None
-            logger.info("Progress database closed.")
+            logger.info(f"Progress database closed at '{db_path}'.")
