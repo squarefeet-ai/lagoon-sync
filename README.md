@@ -59,8 +59,8 @@ lagoon-sync \
 ## Development & Testing
 
 ```bash
-# Install dev extras
-uv pip install -e ".[dev]"
+# Install everything
+uv sync
 
 # Run the test suite (unit + e2e)
 uv run pytest
