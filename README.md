@@ -23,17 +23,16 @@ curl -Ls https://astral.sh/uv/install.sh | bash
 git clone https://github.com/squarefeet-ai/lagoon-sync
 cd lagoon-sync
 
-# 3. Install runtime dependencies
-uv pip install .
+# 3. Sync uv env
+uv sync
 
 # 4. Copy and edit environment variables
 cp .env.example .env
 nano .env  # fill in credentials & bucket names
 
 # 5. Run the synchronizer
-uv pip sync
-lagoon-sync --help  # view CLI options
-lagoon-sync  # start the pipeline
+uv run lagoon-sync --help  # view CLI options
+uv run lagoon-sync  # start the pipeline
 ```
 > **Tip**: For long-running transfers, execute inside a `tmux` session.
 
