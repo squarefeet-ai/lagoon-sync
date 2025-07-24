@@ -96,13 +96,18 @@ class LagoonSyncPipeline:
         source_client: "S3Client",
     ) -> Set[str]:
         """
-        Scans for new manifests, read them, and returns a set of object keys.
+        Scan every Parquet manifest under `app.manifest_prefix`, collect
+        the object keys they list, validate them, and return one deduplicated set.
+
+        Decisions about what still needs copying are made later, by comparing
+        this set with entries in `progress.lmdb`, we do not mark
+        manifests as done here.
 
         Args:
-            source_client (S3Client): The client for the source bucket.
+            source_client (S3Client): The aiobotocore S3 client for the source bucket.
 
         Returns:
-            Set[str]: A unique set of object keys to be synced.
+            Set[str]: All unique object keys that still need to be transferred.
         """
         logger.info(
             "Scanning for new manifests under "
@@ -126,6 +131,7 @@ class LagoonSyncPipeline:
         }
 
         all_keys: Set[str] = set()
+
         async for page in pages:
             if self._shutdown_event.is_set():
                 logger.warning("Shutdown initiated, stopping manifest scan.")
@@ -133,6 +139,7 @@ class LagoonSyncPipeline:
 
             for manifest_obj in page.get("Contents", []):
                 manifest_key: str = manifest_obj["Key"]
+
                 if not manifest_key.endswith(".parquet"):
                     continue
 
@@ -163,6 +170,7 @@ class LagoonSyncPipeline:
                         validated_keys.add(key)
 
                     all_keys.update(validated_keys)
+
                 except Exception as e:
                     logger.error(f"Failed to read manifest '{manifest_key}': {e}")
 
