@@ -35,6 +35,7 @@ uv run lagoon-sync --help  # view CLI options
 uv run lagoon-sync  # start the pipeline
 ```
 > **Tip**: For long-running transfers, execute inside a `tmux` session.
+> The name of the bucket is `jacobb-data-delivery`.
 
 ## Configuration
 
