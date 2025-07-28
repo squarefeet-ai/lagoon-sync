@@ -9,6 +9,7 @@ controlled application shutdown sequence.
 
 import asyncio
 import logging
+import os
 import signal
 from types import FrameType
 from typing import Any, Callable, Dict, Optional, Set
@@ -25,6 +26,9 @@ class GracefulShutdown:
     This utility translates SIGINT and SIGTERM into an `asyncio.Event`.
     Application components can then wait on this event to know when to
     terminate gracefully. It correctly restores previous signal handlers on exit.
+
+    The first received signal triggers a graceful shutdown. A second signal
+    triggers and immediate, forceful exit.
     """
 
     def __init__(self) -> None:
@@ -47,8 +51,22 @@ class GracefulShutdown:
         }
 
         def _handler(sig: int, _: Optional[FrameType]) -> None:
-            """Sets the event and logs the received signal."""
-            if not self._event.is_set():
+            """
+            Handles shutdown signals.
+
+            The first signal sets the asyncio event for a graceful shutdown.
+            Any subsequent signal triggers an immediate, forceful exit.
+            """
+            if self._event.is_set():
+                # This is the second signal. The user wants to exit NOW
+                logger.critical(
+                    "Received second shutdown signal. Forcing immediate exit."
+                )
+                # Use os._exit for a hard exit that doesn't run cleanup,
+                # which might be what's hanging
+                os._exit(1)
+            else:
+                # This is the first signal. Initiate graceful shutdown
                 logger.warning(
                     f"Received shutdown signal: {signal.strsignal(sig)}. "
                     "Initiating graceful shutdown..."
