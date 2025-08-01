@@ -91,11 +91,11 @@ class AppConfig:
     min_concurrency: int = 4
     max_concurrency: int = 256
     controller_enabled: bool = True
-    controller_interval_s: int = 5
-    controller_error_rate_threshold: float = 0.1
-    controller_rtt_spike_factor: float = 1.5
+    controller_interval_s: int = 15
+    controller_error_rate_threshold: float = 0.5
+    controller_rtt_spike_factor: float = 5
     controller_decrease_factor: float = 0.75
-    controller_increase_amount: int = 2
+    controller_increase_amount: int = 4
 
 
 @dataclass(frozen=True)
