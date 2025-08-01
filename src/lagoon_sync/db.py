@@ -11,7 +11,7 @@ import logging
 import shutil
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, List, Optional, Self
 
 import lmdb
 
@@ -52,7 +52,7 @@ class ProgressDB:
 
     This class provides a simple, typed interface for setting and getting
     the status of individual objects, abstracting the underlying key-value
-    store operations.
+    store operations. It can be used as a context manager.
     """
 
     def __init__(self, db_path: Path, map_size_gb=20) -> None:
@@ -64,16 +64,28 @@ class ProgressDB:
             map_size_gb (int): The maximum size of the database in gigabytes.
         """
         self._env: Optional[lmdb.Environment] = None
+        self._db_path: Path = db_path
         map_size: int = map_size_gb * 1024**3
         try:
             db_dir: Path = db_path.parent
             db_dir.mkdir(parents=True, exist_ok=True)
             _check_disk_space(db_dir, map_size)
-            self._env = lmdb.open(str(db_path), map_size=map_size, writemap=True)
+            self._env = lmdb.open(
+                str(db_path),
+                map_size=map_size,
+                writemap=True,
+                max_dbs=1,
+            )
             logger.info(f"Progress database opened at '{db_path}'")
         except lmdb.Error as e:
             logger.error(f"Failed to open LMDB database at '{db_path}': {e}")
             raise LagoonSyncError(f"LMDB initialization failed: {e}") from e
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
 
     def get_status(self, key: str) -> Optional[ObjectStatus]:
         """
@@ -118,6 +130,30 @@ class ProgressDB:
             bool: True if the object is marked as `COMPLETED`, False otherwise.
         """
         return self.get_status(key) == ObjectStatus.COMPLETED
+
+    def filter_pending_keys(self, keys: Iterable[str]) -> List[str]:
+        """
+        Efficiently filters a collection of keys, returning only those
+        not marked as COMPLETED.
+
+        This method uses a single read transaction to check all keys, which is
+        significantly faster than checking one by one.
+
+        Args:
+            keys (Iterable[str]): A collection of keys to check.
+
+        Returns:
+            List[str]: A list of keys that are not marked as COMPLETED.
+        """
+        if not self._env:
+            raise LMDBError("LMDB environment is not open.")
+        pending_keys: List[str] = []
+        with self._env.begin(write=False) as txn:
+            for key in keys:
+                status_val: Optional[bytes] = txn.get(key.encode("utf-8"))
+                if status_val != ObjectStatus.COMPLETED.value:
+                    pending_keys.append(key)
+        return pending_keys
 
     def close(self) -> None:
         """Closes the LMDB environment."""

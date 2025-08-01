@@ -5,12 +5,13 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 import click
 from dotenv import load_dotenv
 from rich.logging import RichHandler
 
+from lagoon_sync import __version__
 from lagoon_sync.config import AppConfig, Config
 from lagoon_sync.exceptions import LagoonSyncError
 from lagoon_sync.signals import GracefulShutdown
@@ -48,6 +49,7 @@ async def main_async(config: Config) -> None:
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
+@click.version_option(__version__, "-v", "--version")
 @click.option(
     "--data-dir",
     type=click.Path(file_okay=False, dir_okay=True, writable=True, resolve_path=True),
@@ -58,7 +60,7 @@ async def main_async(config: Config) -> None:
 @click.option(
     "--max-concurrency",
     type=int,
-    default=512,
+    default=1024,
     help="Maximum number of concurrent transfers.",
     show_default=True,
 )
@@ -91,14 +93,21 @@ def cli(**kwargs: Any) -> None:
     See the .env.example file for required variables.
     """
     load_dotenv()
-    setup_logging(kwargs["log_level"])
+
+    # Pop log_level for setup; it's not part of AppConfig
+    log_level: str = kwargs.pop("log_level")
+    setup_logging(log_level)
 
     try:
-        app_config: AppConfig = AppConfig(
-            data_dir=Path(kwargs["data_dir"]),
-            max_concurrency=kwargs["max_concurrency"],
-            controller_enabled=not kwargs["no_controller"],
-        )
+        cli_args: Dict[str, Any] = {k: v for k, v in kwargs.items() if v is not None}
+
+        # Handle flag transformation
+        if "no_controller" in cli_args:
+            cli_args["controller_enabled"] = not cli_args.pop("no_controller")
+        if "data_dir" in cli_args:
+            cli_args["data_dir"] = Path(cli_args["data_dir"])
+
+        app_config: AppConfig = AppConfig(**cli_args)
         config: Config = Config(app=app_config)
 
         asyncio.run(main_async(config))

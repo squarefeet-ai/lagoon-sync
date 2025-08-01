@@ -73,10 +73,12 @@ class AppConfig:
 
     Attributes:
         data_dir (Path): Directory to store the LMDB progress database.
+        db_map_size_gb (int): The maximum size of the database in gigabytes.
         manifest_prefix (str): S3 prefix to scan for manifest files.
         manifest_column_name (str): Column name for object keys in manifests.
         min_concurrency (int): The minimum number of concurrent transfers.
         max_concurrency (int): The maximum number of concurrent transfers.
+        transfer_max_attempts (int): Max attempts for a single object transfer.
         controller_enabled (bool): Whether to enabled the congestion controller.
         controller_interval_s (int): Interval for controller adjustments in seconds.
         controller_error_rate_threshold (float): Error rate to trigger decrease.
@@ -86,16 +88,18 @@ class AppConfig:
     """
 
     data_dir: Path = field(default_factory=lambda: Path("data"))
+    db_map_size_gb: int = 20
     manifest_prefix: str = "manifests/"
     manifest_column_name: str = "uri"
-    min_concurrency: int = 4
-    max_concurrency: int = 256
+    min_concurrency: int = 16
+    max_concurrency: int = 1024
+    transfer_max_attempts: int = 5
     controller_enabled: bool = True
-    controller_interval_s: int = 15
-    controller_error_rate_threshold: float = 0.5
-    controller_rtt_spike_factor: float = 5
-    controller_decrease_factor: float = 0.75
-    controller_increase_amount: int = 4
+    controller_interval_s: int = 10
+    controller_error_rate_threshold: float = 0.1
+    controller_rtt_spike_factor: float = 3.0
+    controller_decrease_factor: float = 0.95
+    controller_increase_amount: int = 32
 
 
 @dataclass(frozen=True)
